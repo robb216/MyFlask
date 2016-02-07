@@ -5,6 +5,7 @@ from flask import Flask, request, session, g, redirect, url_for, \
 from contextlib import closing
 
 
+# With registering
 DATABASE = os.path.join(os.path.dirname(__file__), 'static', 'MyFlask.db')
 DEBUG = True
 SECRET_KEY = 'development key'
@@ -75,6 +76,28 @@ def add_entry():
     return redirect(url_for('show_entries'))
 
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    error = None
+    if request.method == 'POST':
+        if not request.form['password'] == request.form['password2']:
+            error = 'Passwords do not match'
+        elif check_user(request.form['username']):
+            error = 'Account already exists'
+        else:
+            g.db.execute('insert into users (username, password) values (?, ?)',
+                         [request.form['username'], request.form['password']])
+            g.db.commit()
+            if not check_user(request.form['username'], request.form['password']):
+                error = 'An error occurred while creating your account'
+            else:
+                flash('New user created, you can now post messages')
+                session['logged_in'] = True
+                session['username'] = request.form['username']
+                return redirect(url_for('show_entries'))
+    return render_template('register.html', error=error)
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
@@ -100,4 +123,3 @@ def logout():
 if __name__ == '__main__':
     init_db()
     app.run()
-#test
