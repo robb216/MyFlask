@@ -1,4 +1,3 @@
-pragma foreign_keys = ON;
 drop table if exists entries;
 drop table if exists users;
 create table IF NOT EXISTS users (
