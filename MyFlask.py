@@ -27,6 +27,14 @@ def connect_db():
 
 
 def check_user(username, password=''):
+    """
+    Looks in the database for a user with the specified attributes.
+    Returns True if found.
+
+    :param username: The main attribute to look for.
+    :param password: Optional.
+    :return: True if one or more users with the exact attributes are found
+    """
     if not password == '':
         query = 'select count(*) from users where username = ? and password = ?'
         cur = g.db.execute(query, [username, password])
@@ -51,7 +59,7 @@ def teardown_request(exception):
 
 @app.route('/')
 def show_entries():
-    cur = g.db.execute('select e.title, u.username, e.text from entries e, users u where u.id = e.owner order by u.id desc')
+    cur = g.db.execute('select e.title, u.username, e.text from entries e, users u where u.id = e.owner order by u.id desc limit 10')
     entries = [dict(title=row[0], owner=row[1], text=row[2]) for row in cur.fetchall()]
     return render_template('show_entries.html', entries=entries)
 
@@ -79,28 +87,6 @@ def login():
             flash('You were logged in')
             return redirect(url_for('show_entries'))
     return render_template('login.html', error=error)
-
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    error = None
-    if request.method == 'POST':
-        if not request.form['password'] == request.form['password2']:
-            error = 'Passwords do not match'
-        elif check_user(request.form['username']):
-            error = 'Account already exists'
-        else:
-            g.db.execute('insert into users (username, password) values (?, ?)',
-                         [request.form['username'], request.form['password']])
-            g.db.commit()
-            if not check_user(request.form['username'], request.form['password']):
-                error = 'An error occurred while creating your account'
-            else:
-                flash('New user created, you can now post messages')
-                session['logged_in'] = True
-                session['username'] = request.form['username']
-                return redirect(url_for('show_entries'))
-    return render_template('register.html', error=error)
 
 
 @app.route('/logout')

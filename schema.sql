@@ -13,4 +13,4 @@ create table entries (
   text text not null,
   FOREIGN KEY(owner) REFERENCES users(id)
 );
-insert into users (username, password) values ('admin', 'default')
+insert into users (username, password) values ('guest', 'default');
