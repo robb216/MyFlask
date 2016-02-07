@@ -26,8 +26,13 @@ def connect_db():
     return sqlite3.connect(app.config['DATABASE'])
 
 
-def check_user(username, password):
-    cur = g.db.execute('select count(*) from users where username = ? and password = ?', [username, password])
+def check_user(username, password=''):
+    if not password == '':
+        query = 'select count(*) from users where username = ? and password = ?'
+        cur = g.db.execute(query, [username, password])
+    else:
+        query = 'select count(*) from users where username = ?'
+        cur = g.db.execute(query, [username])
     data = int(cur.fetchone()[0])
     return data > 0
 
@@ -74,6 +79,28 @@ def login():
             flash('You were logged in')
             return redirect(url_for('show_entries'))
     return render_template('login.html', error=error)
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    error = None
+    if request.method == 'POST':
+        if not request.form['password'] == request.form['password2']:
+            error = 'Passwords do not match'
+        elif check_user(request.form['username']):
+            error = 'Account already exists'
+        else:
+            g.db.execute('insert into users (username, password) values (?, ?)',
+                         [request.form['username'], request.form['password']])
+            g.db.commit()
+            if not check_user(request.form['username'], request.form['password']):
+                error = 'An error occurred while creating your account'
+            else:
+                flash('New user created, you can now post messages')
+                session['logged_in'] = True
+                session['username'] = request.form['username']
+                return redirect(url_for('show_entries'))
+    return render_template('register.html', error=error)
 
 
 @app.route('/logout')
