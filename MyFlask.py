@@ -1,12 +1,8 @@
-import sqlite3
-import os
+import mysql.connector
 from flask import Flask, request, session, g, redirect, url_for, \
      abort, render_template, flash
-from contextlib import closing
 
 
-# With registering
-DATABASE = os.path.join(os.path.dirname(__file__), 'static', 'MyFlask.db')
 DEBUG = True
 SECRET_KEY = 'development key'
 USERNAME = 'admin'
@@ -16,15 +12,13 @@ app = Flask(__name__)
 app.config.from_object(__name__)
 
 
-def init_db():
-    with closing(connect_db()) as db:
-        with app.open_resource('schema.sql', mode='r') as f:
-            db.cursor().executescript(f.read())
-        db.commit()
-
-
 def connect_db():
-    return sqlite3.connect(app.config['DATABASE'])
+    connection = mysql.connector.connect(user='admin', password='ilionxpython',
+                                   host='mysql-python.tryfirst.svc.tutum.io',
+                                   port='12345',
+                                   database='db')
+    connection.autocommit = True
+    return connection
 
 
 def check_user(username, password=''):
@@ -36,13 +30,12 @@ def check_user(username, password=''):
     :param password: Optional.
     :return: True if one or more users with the exact attributes are found
     """
+    cur = g.db.cursor(buffered=True)
     if not password == '':
-        query = 'select count(*) from users where username = ? and password = ?'
-        cur = g.db.execute(query, [username, password])
+        cur.execute("select count(*) from users where user_username = %s and user_password = %s", (username, password))
     else:
-        query = 'select count(*) from users where username = ?'
-        cur = g.db.execute(query, [username])
-    data = int(cur.fetchone()[0])
+        cur.execute("select count(*) from users where user_username = %s", (username,))
+    for row in cur: data = row[0]
     return data > 0
 
 
@@ -60,8 +53,9 @@ def teardown_request(exception):
 
 @app.route('/')
 def show_entries():
-    cur = g.db.execute('select e.title, u.username, e.text from entries e, users u where u.id = e.owner order by u.id desc limit 10')
-    entries = [dict(title=row[0], owner=row[1], text=row[2]) for row in cur.fetchall()]
+    cur = g.db.cursor(buffered=True)
+    cur.execute('select e.entry_title, u.user_username, e.entry_text from entries e, users u where u.user_id = e.entry_owner order by u.user_id desc limit 10')
+    entries = [dict(title=row[0], owner=row[1], text=row[2]) for row in cur]
     return render_template('show_entries.html', entries=entries)
 
 
@@ -69,9 +63,9 @@ def show_entries():
 def add_entry():
     if not session.get('logged_in'):
         abort(401)
-    g.db.execute('insert into entries (title, text, owner) values (?, ?, (	select id from users where username = ?));',
-                 [request.form['title'], request.form['text'], session['username']])
-    g.db.commit()
+    cur = g.db.cursor()
+    cur.execute('insert into entries (entry_title, entry_text, entry_owner) values (%s, %s, (	select user_id from users where user_username = %s));',
+                (request.form['title'], request.form['text'], session['username']))
     flash('New entry was successfully posted')
     return redirect(url_for('show_entries'))
 
@@ -85,9 +79,8 @@ def register():
         elif check_user(request.form['username']):
             error = 'Account already exists'
         else:
-            g.db.execute('insert into users (username, password) values (?, ?)',
-                         [request.form['username'], request.form['password']])
-            g.db.commit()
+            g.db.cursor().execute('insert into users (user_username, user_password) values (%s, %s)',
+                        (request.form['username'], request.form['password']))
             if not check_user(request.form['username'], request.form['password']):
                 error = 'An error occurred while creating your account'
             else:
@@ -121,5 +114,4 @@ def logout():
 
 
 if __name__ == '__main__':
-    init_db()
     app.run()
