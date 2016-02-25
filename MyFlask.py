@@ -61,13 +61,15 @@ def show_entries():
 
 @app.route('/add', methods=['POST'])
 def add_entry():
-    if not session.get('logged_in'):
-        abort(401)
-    cur = g.db.cursor()
-    cur.execute('insert into entries (entry_title, entry_text, entry_owner) values (%s, %s, (	select user_id from users where user_username = %s));',
-                (request.form['title'], request.form['text'], session['username']))
-    flash('New entry was successfully posted')
+    """
+    Checks in the session if the user is logged in. If not, calls the function abort(401).
+    If the user is logged in, this function prepares a mysql cursor.
+    This cursor prepares and executes an sql insert statement.
+    :return: The page with entries
+    """
+    flash('Code for adding entries not existent, please fix this!')
     return redirect(url_for('show_entries'))
+
 
 
 @app.route('/register', methods=['GET', 'POST'])
